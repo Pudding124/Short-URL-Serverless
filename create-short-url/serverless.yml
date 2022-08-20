@@ -1,0 +1,43 @@
+service: create-short-url
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  region: us-west-2
+  stage: dev
+  runtime: python3.8
+  endpointType: REGIONAL
+  memorySize: 128
+  logs:
+    restApi: true
+  apiGateway:
+    apiKeys:
+      - create-short-url-key
+    usagePlan:
+      quota:
+        limit: 5000
+        offset: 2
+        period: MONTH
+      throttle:
+        burstLimit: 200
+        rateLimit: 100
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3-object-lambda:*
+            - s3:*
+          Resource: '*'
+
+functions:
+  createUrl:
+    handler: handler.create_url
+    events:
+      - http:
+          method: POST
+          path: /create_url
+          private: true
+
+
