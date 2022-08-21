@@ -136,7 +136,7 @@ resources:
             Compress: true
           Origins:
           - Id: s3-access
-            DomainName: 'shorturl-data.s3-website-us-west-2.amazonaws.com'
+            DomainName: '${self:custom.bucket_name}.s3-website-${self:provider.region}.amazonaws.com'
             OriginCustomHeaders:
               - HeaderName: 'Referer'
                 HeaderValue: ${self:custom.bucket_secret}
@@ -144,7 +144,12 @@ resources:
               OriginProtocolPolicy: 'http-only'
               HTTPSPort: 80
           - Id: create-url-access
-            DomainName: 'i5izbjqm9b.execute-api.us-west-2.amazonaws.com'
+            DomainName: !Join
+              - ''
+              - - Ref: ApiGatewayRestApi
+                - '.execute-api.'
+                - ${self:provider.region}
+                - '.amazonaws.com'
             OriginCustomHeaders:
               - HeaderName: 'x-api-key'
                 HeaderValue: ${self:custom.api_key}
