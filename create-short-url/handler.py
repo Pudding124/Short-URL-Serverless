@@ -9,7 +9,7 @@ def create_url(event, context):
     url = json.loads(event['body'])['url']
     id = os.urandom(10).hex()
 
-    s3.put_object(Bucket='short-url-feed', Key=f'm/{id}', WebsiteRedirectLocation=url)
+    s3.put_object(Bucket='<your s3 bucket>', Key=f'm/{id}', WebsiteRedirectLocation=url)
     
     return {
         'statusCode': 200,

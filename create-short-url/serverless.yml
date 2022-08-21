@@ -2,10 +2,16 @@ service: create-short-url
 
 frameworkVersion: '3'
 
+custom:
+  domain: ${file(./env-${opt:stage, 'dev'}.yml):setting.domain}
+  bucket_name: ${file(./env-${opt:stage, 'dev'}.yml):setting.bucket_name}
+  bucket_secret: ${file(./env-${opt:stage, 'dev'}.yml):setting.bucket_secret}
+  api_key: ${file(./env-${opt:stage, 'dev'}.yml):setting.api_key}
+  acm: ${file(./env-${opt:stage, 'dev'}.yml):setting.acm}
+
 provider:
   name: aws
   region: us-west-2
-  stage: dev
   runtime: python3.8
   endpointType: REGIONAL
   memorySize: 128
@@ -13,7 +19,7 @@ provider:
     restApi: true
   apiGateway:
     apiKeys:
-      - create-short-url-key
+      - value: ${self:custom.api_key}
     usagePlan:
       quota:
         limit: 5000
@@ -40,4 +46,110 @@ functions:
           path: /create_url
           private: true
 
-
+resources:
+  Resources:
+    # Create the s3 bucket to place index.html and m/ folder
+    ShorturlBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucket_name}
+        AccessControl: PublicRead
+        WebsiteConfiguration: 
+          IndexDocument: index.html
+        LifecycleConfiguration:
+          Rules:
+            - Id: ShortUrlCleanRule
+              Prefix: m/
+              Status: Enabled
+              ExpirationInDays: 3
+    # Create the s3 bucket police that only cloudfront can access file
+    ShorturlBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref ShorturlBucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Action:
+                - 's3:GetObject'
+                - 's3:GetObjectVersion'
+              Effect: Allow
+              Resource: !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref ShorturlBucket
+                  - /*
+              Principal: '*'
+              Condition:
+                StringLike:
+                  'aws:Referer':
+                    - ${self:custom.bucket_secret}
+    # Create the cloudfront
+    ShorturlCloudfront:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          Aliases:
+            - ${self:custom.domain}
+          ViewerCertificate:
+            AcmCertificateArn: ${self:custom.acm}
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          DefaultCacheBehavior:
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            AllowedMethods:
+              - GET
+              - HEAD
+            TargetOriginId: s3-access
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+          CacheBehaviors:
+          - PathPattern: '*.html'
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            AllowedMethods:
+            - GET
+            - HEAD
+            TargetOriginId: s3-access
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+          - PathPattern: '/m/*'
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            AllowedMethods:
+            - GET
+            - HEAD
+            TargetOriginId: s3-access
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+          - PathPattern: '*'
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            AllowedMethods:
+            - DELETE
+            - GET
+            - HEAD
+            - OPTIONS
+            - PATCH
+            - POST
+            - PUT
+            TargetOriginId: create-url-access
+            ViewerProtocolPolicy: https-only
+            Compress: true
+          Origins:
+          - Id: s3-access
+            DomainName: 'shorturl-data.s3-website-us-west-2.amazonaws.com'
+            OriginCustomHeaders:
+              - HeaderName: 'Referer'
+                HeaderValue: ${self:custom.bucket_secret}
+            CustomOriginConfig:
+              OriginProtocolPolicy: 'http-only'
+              HTTPSPort: 80
+          - Id: create-url-access
+            DomainName: 'i5izbjqm9b.execute-api.us-west-2.amazonaws.com'
+            OriginCustomHeaders:
+              - HeaderName: 'x-api-key'
+                HeaderValue: ${self:custom.api_key}
+            CustomOriginConfig:
+              OriginProtocolPolicy: 'https-only'
+              HTTPSPort: 443
+              OriginSSLProtocols: 
+                - 'TLSv1.2'

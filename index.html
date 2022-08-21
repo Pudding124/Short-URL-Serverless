@@ -17,11 +17,14 @@
         integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 
     <script>
+
+        var domain = '<your s3 bucket>'
+
         function popIpIcalUrlToBroswer() {
             text = $('#url_content').val()
             console.log(text)
             $.ajax({
-                url: 'https://shorturl.marshsu.net/dev/create_url',
+                url: 'https://'+domain+'/dev/create_url',
                 method: 'post',
                 contentType: "application/json",
                 dataType: 'json',
@@ -30,7 +33,7 @@
                 }),
                 success: function (data) {
                     // window.open(data.url);
-                    document.getElementById("short_url_content").value = "https://shorturl.marshsu.net/m/"+data.id;
+                    document.getElementById("short_url_content").value = "https://"+domain+"/m/"+data.id;
                 }
             });
         }
