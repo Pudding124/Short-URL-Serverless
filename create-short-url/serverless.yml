@@ -22,12 +22,12 @@ provider:
       - value: ${self:custom.api_key}
     usagePlan:
       quota:
-        limit: 5000
+        limit: 1000
         offset: 2
         period: MONTH
       throttle:
-        burstLimit: 200
-        rateLimit: 100
+        burstLimit: 1
+        rateLimit: 5
   iam:
     role:
       statements:
